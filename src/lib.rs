@@ -14,7 +14,7 @@ use std::{
 
 /// A mantra to be "recited" by the miner. Since a computer can't actually recite a mantra, the term
 /// refers to the process of writing the mantra syllable by syllable to an input buffer.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Mantra {
     /// The syllables of the mantra. The mantra will be recited syllable by syllable.
     pub syllables: Vec<String>,
@@ -28,7 +28,7 @@ impl Mantra {
         let repeats = self.repeats.unwrap_or(1);
         for _ in 0..repeats {
             for syllable in &self.syllables {
-                output.write(syllable.as_bytes())?;
+                output.write_all(syllable.as_bytes())?;
                 thread::sleep(rate);
             }
         }
@@ -37,7 +37,7 @@ impl Mantra {
 }
 
 /// The options used to configure the mantra miner.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Options {
     /// Traditional Buddhist sadhanas, or ritual practices, consists of three parts. The first part,
     /// preparation, consists of taking refuge in the Three Jewels and arising bodhicitta, the
@@ -104,7 +104,7 @@ impl MantraMiner {
             Some(input) => {
                 for c in input.chars() {
                     let mut b = [0; 4];
-                    output.write(c.encode_utf8(&mut b).as_bytes())?;
+                    output.write_all(c.encode_utf8(&mut b).as_bytes())?;
                     thread::sleep(rate);
                 }
                 Ok(())
@@ -170,7 +170,7 @@ impl MantraMiner {
 
     /// Returns the count of the mantra miner.
     pub fn count(&self) -> usize {
-        self.count.lock().clone()
+        *self.count.lock()
     }
 }
 
@@ -271,5 +271,19 @@ mod tests {
         miner.stop()?;
         assert_eq!(miner.count(), 3);
         Ok(())
+    }
+
+    #[test]
+    fn options() {
+        let options = Options {
+            preparation: None,
+            mantras: vec![repeated_mantra()],
+            conclusion: None,
+            rate_ms: 1,
+            repeats: Some(3),
+        };
+        let options_clone = options.clone();
+        let miner = MantraMiner::new(options);
+        assert_eq!(miner.options(), options_clone);
     }
 }
