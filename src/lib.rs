@@ -1,9 +1,27 @@
-//! Mantra Miner
+//! mantra-miner is a library to make your software "recite" mantras while it runs.
+//!
+//! A spoof on crypto mining, this library spawns a thread and writes the specified mantras to a
+//! buffer. The user can select the mantras as well as an optional preparation and conclusion
+//! sections that mirror the format of traditional Buddhist ritual practices.
+//!
+//! The library was born for use with [Trane](https://github.com/trane-project/trane) as a way to
+//! allow its users to contribute back to the maintainer in a symbolic and non-monetary way. In
+//! Trane, the mantra of Tara Sarasvati - the manifestation of the Buddhist deity Tara associated
+//! with wisdom, music, learning, and the arts - is recited as the users run the software to
+//! acquire and practice complex skills.
+//!  
+//! Similar examples of using mantras in mediums other than the voice exist throughout Asia. Prayer
+//! wheels contain written mantras that are said to generate the same merit as reciting the amount
+//! of mantras inside every time the wheel completes a full rotation. With the use of microfilm, a
+//! prayer wheel can contain millions or more mantras. Another example consists of carving mantras
+//! in rock, which is common in the Himalayas and Tibet.
+//!
+//! For more information, check the project's README.
 
 use anyhow::Result;
 use parking_lot::Mutex;
 use std::{
-    io::{sink, BufWriter, Sink, Write},
+    io::{sink, BufWriter, Write},
     sync::{
         mpsc::{self, Receiver, Sender, TryRecvError},
         Arc,
@@ -13,7 +31,7 @@ use std::{
 };
 
 /// A mantra to be "recited" by the miner. Since a computer can't actually recite a mantra, the term
-/// refers to the process of writing the mantra syllable by syllable to an input buffer.
+/// refers to the process of writing the mantra syllable by syllable to an output buffer.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Mantra {
     /// The syllables of the mantra. The mantra will be recited syllable by syllable.
@@ -24,11 +42,16 @@ pub struct Mantra {
 }
 
 impl Mantra {
-    fn recite(&self, output: &mut BufWriter<Sink>, rate: Duration) -> Result<()> {
+    /// Writes the mantra syllable by syllable to the given buffer.
+    fn recite<T>(&self, output: &mut BufWriter<T>, rate: Duration) -> Result<()>
+    where
+        T: Write,
+    {
         let repeats = self.repeats.unwrap_or(1);
         for _ in 0..repeats {
             for syllable in &self.syllables {
                 output.write_all(syllable.as_bytes())?;
+                output.write_all("\n".as_bytes())?;
                 thread::sleep(rate);
             }
         }
@@ -37,7 +60,7 @@ impl Mantra {
 }
 
 /// The options used to configure the mantra miner.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Options {
     /// Traditional Buddhist sadhanas, or ritual practices, consists of three parts. The first part,
     /// preparation, consists of taking refuge in the Three Jewels and arising bodhicitta, the
@@ -48,17 +71,17 @@ pub struct Options {
     /// this mantra miner consists of reciting the given mantras.
     pub mantras: Vec<Mantra>,
 
-    /// The third part of the sadhana is the conclusion, which consists of dedicating the merit of
-    /// the practice to all sentient beings.
+    /// The third part of the sadhana is the conclusion, which traditionally consists of dedicating
+    /// the merit of the practice to all sentient beings.
     pub conclusion: Option<String>,
 
     /// The number of times to repeat the entire sadhana. If it's `None`, the sadhana will be
     /// repeated indefinitely until the miner is stopped or the program is terminated.
     pub repeats: Option<usize>,
 
-    /// The number of milliseconds to wait between each syllable of a mantra or character of the
+    /// The number of nanoseconds to wait between each syllable of a mantra or character of the
     /// preparation or conclusion.
-    pub rate_ms: u64,
+    pub rate_ns: u64,
 }
 
 impl Options {
@@ -71,7 +94,7 @@ impl Options {
     }
 }
 
-/// The mantra miner.
+/// A mantra miner that spawns a thread and "recites" mantras by writing them to an output buffer.
 pub struct MantraMiner {
     /// The options used to configure the mantra miner.
     options: Options,
@@ -94,11 +117,14 @@ impl MantraMiner {
     }
 
     /// Recites the optional string. Used to recite the preparation and conclusion.
-    fn recite_string(
+    fn recite_string<T>(
         input: &Option<String>,
-        output: &mut BufWriter<Sink>,
+        output: &mut BufWriter<T>,
         rate: Duration,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        T: Write,
+    {
         match input {
             None => Ok(()),
             Some(input) => {
@@ -116,7 +142,7 @@ impl MantraMiner {
     fn run(options: Options, total_count: Arc<Mutex<usize>>, rx: Receiver<()>) -> Result<()> {
         let mut run_count = 0;
         let mut output = BufWriter::new(sink());
-        let rate = Duration::from_millis(options.rate_ms);
+        let rate = Duration::from_nanos(options.rate_ns);
 
         while options.should_repeat(run_count) {
             match rx.try_recv() {
@@ -177,7 +203,11 @@ impl MantraMiner {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use std::{thread, time::Duration};
+    use std::{
+        io::{BufWriter, Write},
+        thread,
+        time::Duration,
+    };
 
     use crate::{Mantra, MantraMiner, Options};
 
@@ -206,17 +236,55 @@ mod tests {
     }
 
     #[test]
+    fn should_repeat() {
+        let mut options = Options::default();
+
+        options.repeats = Some(10);
+        assert_eq!(options.should_repeat(5), true);
+        assert_eq!(options.should_repeat(10), false);
+        assert_eq!(options.should_repeat(50), false);
+
+        options.repeats = None;
+        assert_eq!(options.should_repeat(5), true);
+        assert_eq!(options.should_repeat(10), true);
+        assert_eq!(options.should_repeat(50), true);
+    }
+
+    #[test]
+    fn recite_string() -> Result<()> {
+        let rate = Duration::from_nanos(10);
+        let buffer = Vec::with_capacity(100);
+        let mut output = BufWriter::new(buffer);
+        MantraMiner::recite_string(&Some(PREPARATION.to_string()), &mut output, rate)?;
+        output.flush()?;
+        assert_eq!(output.get_ref(), PREPARATION.as_bytes());
+        Ok(())
+    }
+
+    #[test]
+    fn recite_mantra() -> Result<()> {
+        let mantra = simple_mantra();
+        let rate = Duration::from_nanos(10);
+        let buffer = Vec::with_capacity(100);
+        let mut output = BufWriter::new(buffer);
+        mantra.recite(&mut output, rate)?;
+        output.flush()?;
+        assert_eq!(output.get_ref(), "om\nma\nni\npad\nme\nhum\n".as_bytes());
+        Ok(())
+    }
+
+    #[test]
     fn set_repeats() -> Result<()> {
         let options = Options {
             preparation: None,
             mantras: vec![simple_mantra()],
             conclusion: None,
-            rate_ms: 1,
+            rate_ns: 1000,
             repeats: Some(10),
         };
         let mut miner = MantraMiner::new(options);
         miner.start()?;
-        thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(10));
         miner.stop()?;
         assert_eq!(miner.count(), 10);
         Ok(())
@@ -228,12 +296,12 @@ mod tests {
             preparation: None,
             mantras: vec![simple_mantra()],
             conclusion: None,
-            rate_ms: 1,
+            rate_ns: 1000,
             repeats: None,
         };
         let mut miner = MantraMiner::new(options);
         miner.start()?;
-        thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(10));
         miner.stop()?;
         assert!(miner.count() > 10);
         Ok(())
@@ -245,12 +313,12 @@ mod tests {
             preparation: Some(PREPARATION.to_string()),
             mantras: vec![simple_mantra()],
             conclusion: Some(DEDICATION.to_string()),
-            rate_ms: 1,
+            rate_ns: 1000,
             repeats: Some(3),
         };
         let mut miner = MantraMiner::new(options);
         miner.start()?;
-        thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(100));
         miner.stop()?;
         assert_eq!(miner.count(), 3);
         Ok(())
@@ -259,15 +327,15 @@ mod tests {
     #[test]
     fn using_repeated_mantra() -> Result<()> {
         let options = Options {
-            preparation: None,
+            preparation: Some(PREPARATION.to_string()),
             mantras: vec![repeated_mantra()],
-            conclusion: None,
-            rate_ms: 1,
+            conclusion: Some(DEDICATION.to_string()),
+            rate_ns: 1000,
             repeats: Some(3),
         };
         let mut miner = MantraMiner::new(options);
         miner.start()?;
-        thread::sleep(Duration::from_millis(1000));
+        thread::sleep(Duration::from_millis(100));
         miner.stop()?;
         assert_eq!(miner.count(), 3);
         Ok(())
@@ -279,7 +347,7 @@ mod tests {
             preparation: None,
             mantras: vec![repeated_mantra()],
             conclusion: None,
-            rate_ms: 1,
+            rate_ns: 1000,
             repeats: Some(3),
         };
         let options_clone = options.clone();
