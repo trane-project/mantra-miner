@@ -4,7 +4,10 @@ use anyhow::Result;
 use parking_lot::Mutex;
 use std::{
     io::{sink, BufWriter, Sink, Write},
-    sync::Arc,
+    sync::{
+        mpsc::{self, Receiver, Sender, TryRecvError},
+        Arc,
+    },
     thread,
     time::Duration,
 };
@@ -76,11 +79,8 @@ pub struct MantraMiner {
     /// The number of times the mantra miner has completed a recitation of the entire sadhana.
     count: Arc<Mutex<usize>>,
 
-    /// Whether the mantra miner is currently running.
-    running: bool,
-
-    /// The handle to the thread running the mantra miner.
-    thread_handle: Option<thread::JoinHandle<()>>,
+    /// The channel used to signal the thread to stop.
+    stop_channel: Option<Sender<()>>,
 }
 
 impl MantraMiner {
@@ -89,8 +89,7 @@ impl MantraMiner {
         MantraMiner {
             options,
             count: Arc::new(Mutex::new(0)),
-            running: false,
-            thread_handle: None,
+            stop_channel: None,
         }
     }
 
@@ -114,12 +113,19 @@ impl MantraMiner {
     }
 
     /// Runs the mantra miner.
-    fn run(options: Options, total_count: Arc<Mutex<usize>>) -> Result<()> {
+    fn run(options: Options, total_count: Arc<Mutex<usize>>, rx: Receiver<()>) -> Result<()> {
         let mut run_count = 0;
         let mut output = BufWriter::new(sink());
         let rate = Duration::from_millis(options.rate_ms);
 
         while options.should_repeat(run_count) {
+            match rx.try_recv() {
+                Ok(_) | Err(TryRecvError::Disconnected) => {
+                    break;
+                }
+                Err(TryRecvError::Empty) => {}
+            }
+
             Self::recite_string(&options.preparation, &mut output, rate)?;
 
             for mantra in &options.mantras {
@@ -135,18 +141,26 @@ impl MantraMiner {
     }
 
     /// Spawns a new thread to run the mantra miner.
-    pub fn start(&mut self) {
+    pub fn start(&mut self) -> Result<()> {
+        // Stop any existing thread.
+        self.stop()?;
+
         let cloned_options = self.options.clone();
         let cloned_count = self.count.clone();
-        self.thread_handle = Some(thread::spawn(move || {
-            let _ = MantraMiner::run(cloned_options, cloned_count);
-        }));
-        self.running = true;
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let _ = MantraMiner::run(cloned_options, cloned_count, rx);
+        });
+        self.stop_channel = Some(tx);
+        Ok(())
     }
 
     /// Stops the thread running the mantra miner.
-    pub fn stop(&mut self) {
-        if let Some(thread_handle) = self.thread_handle.take() {}
+    pub fn stop(&mut self) -> Result<()> {
+        if let Some(tx) = self.stop_channel.take() {
+            let _ = tx.send(());
+        }
+        Ok(())
     }
 
     /// Returns the options used to configure this mantra miner.
@@ -158,12 +172,104 @@ impl MantraMiner {
     pub fn count(&self) -> usize {
         self.count.lock().clone()
     }
-
-    /// Returns whether the mantra miner is currently running.
-    pub fn is_running(&self) -> bool {
-        self.running
-    }
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use anyhow::Result;
+    use std::{thread, time::Duration};
+
+    use crate::{Mantra, MantraMiner, Options};
+
+    const PREPARATION: &str = "I take refuge in the Three Jewels and arise bodhicitta.";
+    const DEDICATION: &str = "I dedicate the merit of this practice to all sentient beings.";
+
+    fn simple_mantra() -> Mantra {
+        Mantra {
+            syllables: vec![
+                "om".to_string(),
+                "ma".to_string(),
+                "ni".to_string(),
+                "pad".to_string(),
+                "me".to_string(),
+                "hum".to_string(),
+            ],
+            repeats: None,
+        }
+    }
+
+    fn repeated_mantra() -> Mantra {
+        Mantra {
+            syllables: vec!["hri".to_string()],
+            repeats: Some(108),
+        }
+    }
+
+    #[test]
+    fn set_repeats() -> Result<()> {
+        let options = Options {
+            preparation: None,
+            mantras: vec![simple_mantra()],
+            conclusion: None,
+            rate_ms: 1,
+            repeats: Some(10),
+        };
+        let mut miner = MantraMiner::new(options);
+        miner.start()?;
+        thread::sleep(Duration::from_millis(1000));
+        miner.stop()?;
+        assert_eq!(miner.count(), 10);
+        Ok(())
+    }
+
+    #[test]
+    fn indefinite_repeats() -> Result<()> {
+        let options = Options {
+            preparation: None,
+            mantras: vec![simple_mantra()],
+            conclusion: None,
+            rate_ms: 1,
+            repeats: None,
+        };
+        let mut miner = MantraMiner::new(options);
+        miner.start()?;
+        thread::sleep(Duration::from_millis(1000));
+        miner.stop()?;
+        assert!(miner.count() > 10);
+        Ok(())
+    }
+
+    #[test]
+    fn with_preparation_and_dedication() -> Result<()> {
+        let options = Options {
+            preparation: Some(PREPARATION.to_string()),
+            mantras: vec![simple_mantra()],
+            conclusion: Some(DEDICATION.to_string()),
+            rate_ms: 1,
+            repeats: Some(3),
+        };
+        let mut miner = MantraMiner::new(options);
+        miner.start()?;
+        thread::sleep(Duration::from_millis(1000));
+        miner.stop()?;
+        assert_eq!(miner.count(), 3);
+        Ok(())
+    }
+
+    #[test]
+    fn using_repeated_mantra() -> Result<()> {
+        let options = Options {
+            preparation: None,
+            mantras: vec![repeated_mantra()],
+            conclusion: None,
+            rate_ms: 1,
+            repeats: Some(3),
+        };
+        let mut miner = MantraMiner::new(options);
+        miner.start()?;
+        thread::sleep(Duration::from_millis(1000));
+        miner.stop()?;
+        assert_eq!(miner.count(), 3);
+        Ok(())
+    }
+}
