@@ -34,7 +34,7 @@ content offered by the Trane Project free (both as in beer and as in freedom). I
 means that most of the people who ever benefit from Trane will never contribute back to the project,
 neither with money nor code nor educational materials.
 
-As a symbolic mean to allow users to contribute back to the project, I settled on the idea of having
+As a symbolic way to allow users to contribute back to the project, I settled on the idea of having
 Trane "recite" mantras while it runs. The mantra chosen for Trane is the mantra of Tara Sarasvati,
 the manifestation of Tara most closely associated with music and learning. Given that Trane was
 created to help me practice music, I think the mantra is quite appropriate.
@@ -65,7 +65,7 @@ Personally, I have found mantras to have a powerful effect on my mind, to the po
 Avalokiteshvara's mantra of compassion ("om mani padme hum") with helping me overcome what in
 western medical terms would be diagnosed as a severe case of depression, but in actuality was simply
 a case of a mistaken and bleak view of reality. The recitation of the mantra helped the view
-represented by it to become embodied and not simply an intellectual construct.
+represented by it to become embodied and not remain simply an intellectual construct.
 
 ### Who else should use this library?
 
