@@ -67,6 +67,10 @@ pub struct Options {
     /// desire to attain enlightenment for the benefit of all sentient beings.
     pub preparation: Option<String>,
 
+    /// The number of times to repeat the preparation. If the value is `None`, it will be recited
+    /// once.
+    pub preparation_repeats: Option<usize>,
+
     /// The second part of the sadhana is the main body of the practice, which for the purposes of
     /// this mantra miner consists of reciting the given mantras.
     pub mantras: Vec<Mantra>,
@@ -74,6 +78,10 @@ pub struct Options {
     /// The third part of the sadhana is the conclusion, which traditionally consists of dedicating
     /// the merit of the practice to all sentient beings.
     pub conclusion: Option<String>,
+
+    /// The number of times to repeat the conclusion. If the value is `None`, it will be recited
+    /// once.
+    pub conclusion_repeats: Option<usize>,
 
     /// The number of times to repeat the entire sadhana. If it's `None`, the sadhana will be
     /// repeated indefinitely until the miner is stopped or the program is terminated.
@@ -152,13 +160,19 @@ impl MantraMiner {
                 Err(TryRecvError::Empty) => {}
             }
 
-            Self::recite_string(&options.preparation, &mut output, rate)?;
+            let preparation_repeats = options.preparation_repeats.unwrap_or(1);
+            for _ in 0..preparation_repeats {
+                Self::recite_string(&options.preparation, &mut output, rate)?;
+            }
 
             for mantra in &options.mantras {
                 mantra.recite(&mut output, rate)?;
             }
 
-            Self::recite_string(&options.conclusion, &mut output, rate)?;
+            let conclusion_repeats = options.conclusion_repeats.unwrap_or(1);
+            for _ in 0..conclusion_repeats {
+                Self::recite_string(&options.conclusion, &mut output, rate)?;
+            }
 
             *total_count.lock() += 1;
             run_count += 1;
@@ -277,8 +291,10 @@ mod tests {
     fn set_repeats() -> Result<()> {
         let options = Options {
             preparation: None,
+            preparation_repeats: None,
             mantras: vec![simple_mantra()],
             conclusion: None,
+            conclusion_repeats: None,
             rate_ns: 1000,
             repeats: Some(10),
         };
@@ -294,8 +310,10 @@ mod tests {
     fn indefinite_repeats() -> Result<()> {
         let options = Options {
             preparation: None,
+            preparation_repeats: None,
             mantras: vec![simple_mantra()],
             conclusion: None,
+            conclusion_repeats: None,
             rate_ns: 1000,
             repeats: None,
         };
@@ -308,11 +326,32 @@ mod tests {
     }
 
     #[test]
-    fn with_preparation_and_dedication() -> Result<()> {
+    fn with_preparation_and_conclusion() -> Result<()> {
         let options = Options {
             preparation: Some(PREPARATION.to_string()),
+            preparation_repeats: None,
             mantras: vec![simple_mantra()],
             conclusion: Some(DEDICATION.to_string()),
+            conclusion_repeats: None,
+            rate_ns: 1000,
+            repeats: Some(3),
+        };
+        let mut miner = MantraMiner::new(options);
+        miner.start()?;
+        thread::sleep(Duration::from_millis(100));
+        miner.stop()?;
+        assert_eq!(miner.count(), 3);
+        Ok(())
+    }
+
+    #[test]
+    fn with_repeated_preparation_and_conclusion() -> Result<()> {
+        let options = Options {
+            preparation: Some(PREPARATION.to_string()),
+            preparation_repeats: Some(3),
+            mantras: vec![simple_mantra()],
+            conclusion: Some(DEDICATION.to_string()),
+            conclusion_repeats: Some(3),
             rate_ns: 1000,
             repeats: Some(3),
         };
@@ -328,8 +367,10 @@ mod tests {
     fn using_repeated_mantra() -> Result<()> {
         let options = Options {
             preparation: Some(PREPARATION.to_string()),
+            preparation_repeats: None,
             mantras: vec![repeated_mantra()],
             conclusion: Some(DEDICATION.to_string()),
+            conclusion_repeats: None,
             rate_ns: 1000,
             repeats: Some(3),
         };
@@ -345,8 +386,10 @@ mod tests {
     fn options() {
         let options = Options {
             preparation: None,
+            preparation_repeats: None,
             mantras: vec![repeated_mantra()],
             conclusion: None,
+            conclusion_repeats: None,
             rate_ns: 1000,
             repeats: Some(3),
         };
