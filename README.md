@@ -34,10 +34,10 @@ content offered by the Trane Project free (both as in beer and as in freedom). I
 means that most of the people who ever benefit from Trane will never contribute back to the project,
 neither with money nor code nor educational materials.
 
-As a symbolic way to allow users to contribute back to the project, I settled on the idea of having
-Trane "recite" mantras while it runs. The mantra chosen for Trane is the mantra of Tara Sarasvati,
-the manifestation of Tara most closely associated with music and learning. Given that Trane was
-created to help me practice music, I think the mantra is quite appropriate.
+As a symbolic way to allow users to contribute back, I settled on the idea of having Trane "recite"
+mantras while it runs. The mantra chosen for Trane is the mantra of Tara Sarasvati, the
+manifestation of Tara most closely associated with music and learning. Given that Trane was created
+to help me practice music, I think the mantra is quite appropriate.
 
 ### Are you making fun of crypto?
 
@@ -65,10 +65,10 @@ South Vietnam. He believed in mantras enough to pick one (the call to Amitābha 
 
 - **Garchen Rinpoche** spent twenty years in a labor camp due to his status as a high Lama before
   the Chinese invasion of Tibet, practicing in secret, and eventually achieving enough freedom from
-  his mental obscurations that he came to see the labor camp as a "land of jewels". During his time
-  in prison, he fell into a frozen water reservoir in the middle of winter and called out to White
-  Tara using her mantra. He then felt himself floating back up naturally to the surface despite the
-  freezing temperatures and not knowing how to swim.
+  his mental obscurations that he came to see the labor camp, in his own words, as a "land of
+  jewels". During his time in prison, he fell into a frozen water reservoir in the middle of winter
+  and called out to White Tara using her mantra. He then felt himself floating back up naturally to
+  the surface despite the freezing temperatures and not knowing how to swim.
 
 - **Rangjung Rigpe Dorje**, the 16th Karmapa, uttered Avalokiteshvara's mantra of compassion ("om
   mani padme hum") while donning the titular crown at the climax of the Black Crown ceremony, which
@@ -83,6 +83,10 @@ Avalokiteshvara's mantra with helping me overcome what in western medical terms 
 as a severe case of depression, but in actuality was simply a case of a mistaken and bleak view of
 reality. The recitation of the mantra helped the view represented by it to become embodied and not
 remain simply an intellectual construct.
+
+A more elaborate explanation on the Buddhist view of how mantras work through [dependent
+origination](https://en.wikipedia.org/wiki/Prat%C4%ABtyasamutp%C4%81da) can be found in this
+[article](https://perfumedskull.com/2016/06/19/the-magic-of-interdependence-a-general-description-of-the-view-of-how-mantras-produce-results/).
 
 ### Who else should use this library?
 
