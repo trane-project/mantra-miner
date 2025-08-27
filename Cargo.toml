@@ -1,14 +1,14 @@
 [package]
 name = "mantra-miner"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "A library to make your software recite mantras while it runs"
-license = "GPL-3.0"
+license = "GPL-3.0-or-later"
 readme = "README.md"
 repository = "https://github.com/trane-project/mantra-miner"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.62"
-parking_lot = { version = "0.12.1", features = ["hardware-lock-elision"] }
+anyhow = "1.0.99"
+parking_lot = { version = "0.12.4", features = ["hardware-lock-elision"] }
